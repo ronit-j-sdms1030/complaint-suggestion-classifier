@@ -11,3 +11,4 @@ backend/venv/
 # Runtime artifacts from deploy.sh
 *.log
 *.pid
+.api_key

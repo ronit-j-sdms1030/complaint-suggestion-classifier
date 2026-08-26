@@ -27,3 +27,17 @@ indiclid-ftr/            (model_baseline_roman.bin)
 ./deploy.sh   # starts backend on :8000, frontend on :8080
 ./stop.sh
 ```
+
+## Authentication
+
+`POST /predict` requires an API key sent as the `X-API-Key` header. `deploy.sh`
+generates one automatically on first run (via `openssl rand -hex 32`), prints it, and
+saves it to `.api_key` (gitignored, reused across restarts). To use your own instead:
+
+```bash
+API_KEY=<your-key> ./deploy.sh
+```
+
+The frontend prompts for the key once and saves it in the browser's `localStorage` —
+it's never hardcoded into the page source. An existing backend integrating with this
+service should send the same key as `X-API-Key` on every request.

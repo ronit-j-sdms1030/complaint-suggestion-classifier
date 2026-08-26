@@ -57,13 +57,14 @@
   }
   textarea:focus { border-color: var(--primary); }
   .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
-  select {
+  select, input[type="password"] {
     padding: 8px 10px;
     font-size: 13.5px;
     border: 1px solid var(--border);
     border-radius: 6px;
     background: white;
   }
+  input[type="password"] { width: 220px; }
   button.primary {
     background: var(--primary);
     color: white;
@@ -121,6 +122,12 @@
 
 <main>
   <div class="card">
+    <label class="field-label" for="api-key-input">API Key</label>
+    <input type="password" id="api-key-input" placeholder="X-API-Key" />
+    <div class="hint" style="margin-top:6px;">Saved locally in this browser only.</div>
+  </div>
+
+  <div class="card">
     <label class="field-label" for="text-input">Message</label>
     <textarea id="text-input" placeholder="Type or paste a complaint/suggestion in English, Hindi, Marathi, or Hinglish/romanized text..."></textarea>
     <div class="row">
@@ -152,16 +159,28 @@
 
   const textInput = document.getElementById("text-input");
   const langSelect = document.getElementById("lang-select");
+  const apiKeyInput = document.getElementById("api-key-input");
   const submitBtn = document.getElementById("submit-btn");
   const errorHint = document.getElementById("error-hint");
   const resultCard = document.getElementById("result-card");
   const resultBody = document.getElementById("result-body");
 
+  apiKeyInput.value = localStorage.getItem("pmc_api_key") || "";
+  apiKeyInput.addEventListener("change", () => {
+    localStorage.setItem("pmc_api_key", apiKeyInput.value.trim());
+  });
+
   async function classify() {
     const text = textInput.value.trim();
+    const apiKey = apiKeyInput.value.trim();
     errorHint.style.display = "none";
     if (!text) {
       errorHint.textContent = "Enter some text first.";
+      errorHint.style.display = "block";
+      return;
+    }
+    if (!apiKey) {
+      errorHint.textContent = "Enter an API key first.";
       errorHint.style.display = "block";
       return;
     }
@@ -172,12 +191,13 @@
     try {
       const res = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
         body: JSON.stringify({
           text: text,
           language_variant: langSelect.value || null,
         }),
       });
+      if (res.status === 401) throw new Error("Invalid API key");
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       renderResult(data);

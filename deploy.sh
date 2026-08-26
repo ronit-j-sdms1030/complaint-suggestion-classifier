@@ -9,6 +9,19 @@ FRONTEND_DIR="$SCRIPT_DIR/frontend"
 VENV_DIR="$BACKEND_DIR/venv"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-8080}"
+API_KEY_FILE="$SCRIPT_DIR/.api_key"
+
+# Reuse a previously generated key across restarts unless API_KEY is explicitly set.
+if [ -z "${API_KEY:-}" ]; then
+  if [ -f "$API_KEY_FILE" ]; then
+    API_KEY="$(cat "$API_KEY_FILE")"
+  else
+    API_KEY="$(openssl rand -hex 32)"
+    echo "$API_KEY" > "$API_KEY_FILE"
+    chmod 600 "$API_KEY_FILE"
+  fi
+fi
+export API_KEY
 
 echo "Setting up backend virtualenv at $VENV_DIR..."
 if [ ! -d "$VENV_DIR" ]; then
@@ -34,5 +47,6 @@ echo $! > "$SCRIPT_DIR/frontend.pid"
 echo ""
 echo "Backend:  http://0.0.0.0:$BACKEND_PORT  (PID $(cat "$SCRIPT_DIR/backend.pid"), log: backend.log)"
 echo "Frontend: http://0.0.0.0:$FRONTEND_PORT (PID $(cat "$SCRIPT_DIR/frontend.pid"), log: frontend.log)"
+echo "API key: $API_KEY  (saved to .api_key -- callers must send it as the X-API-Key header)"
 echo "Backend model load takes a few seconds -- tail backend.log to watch startup."
 echo "To stop: ./stop.sh"

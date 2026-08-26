@@ -1,9 +1,11 @@
 """
 FastAPI backend for the fine-tuned MuRIL complaint/suggestion classifier.
 Loads the model once at startup and exposes POST /predict for classification requests.
+Requires the API_KEY env var; callers must send it as the X-API-Key header.
 
-Run: uvicorn api:app --host 0.0.0.0 --port 8000   (from this directory)
+Run: API_KEY=<key> uvicorn api:app --host 0.0.0.0 --port 8000   (from this directory)
 """
+import os
 import re
 import sys
 import time
@@ -11,8 +13,9 @@ from pathlib import Path
 
 import fasttext
 import torch
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -75,6 +78,20 @@ SUGGESTION_THRESHOLDS = {
 def get_suggestion_threshold(language_variant):
     return SUGGESTION_THRESHOLDS.get(language_variant, SUGGESTION_THRESHOLDS["default"])
 
+API_KEY = os.environ.get("API_KEY")
+if not API_KEY:
+    raise RuntimeError(
+        "API_KEY environment variable must be set (deploy.sh generates one automatically)."
+    )
+
+_api_key_header = APIKeyHeader(name="X-API-Key")
+
+
+def require_api_key(key: str = Depends(_api_key_header)):
+    if key != API_KEY:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+
+
 app = FastAPI(title="PMC Complaint/Suggestion Classifier")
 
 # The UI is a separately hosted static site (deployment/frontend), not served by this
@@ -112,7 +129,7 @@ class PredictResponse(BaseModel):
     latency_ms: float
 
 
-@app.post("/predict", response_model=PredictResponse)
+@app.post("/predict", response_model=PredictResponse, dependencies=[Depends(require_api_key)])
 def predict(req: PredictRequest):
     start = time.time()
     text = req.text.strip()
