@@ -1,0 +1,13 @@
+# Model weights -- handed over separately as a zip, too large for a normal git push
+muril-pmc-classifier/
+indiclid-ftn/
+indiclid-ftr/
+
+# Python
+__pycache__/
+*.pyc
+backend/venv/
+
+# Runtime artifacts from deploy.sh
+*.log
+*.pid

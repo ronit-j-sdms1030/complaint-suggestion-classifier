@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PMC Classifier</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #dfe3e8;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --complaint: #b91c1c;
+    --complaint-bg: #fef2f2;
+    --suggestion: #15803d;
+    --suggestion-bg: #f0fdf4;
+    --review: #92400e;
+    --review-bg: #fffbeb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 16px 60px;
+  }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { font-size: 13.5px; color: var(--muted); margin: 0; }
+  main { width: 100%; max-width: 620px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+    margin-bottom: 18px;
+  }
+  label.field-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  textarea {
+    width: 100%;
+    min-height: 110px;
+    padding: 12px;
+    font-size: 14.5px;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    resize: vertical;
+    outline: none;
+  }
+  textarea:focus { border-color: var(--primary); }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  select {
+    padding: 8px 10px;
+    font-size: 13.5px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: white;
+  }
+  button.primary {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 7px;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:hover { background: var(--primary-dark); }
+  button.primary:disabled { opacity: 0.6; cursor: default; }
+  .hint { font-size: 12.5px; color: var(--muted); }
+  #error-hint { color: var(--complaint); font-size: 13px; margin-top: 10px; display: none; }
+
+  #result-card { display: none; }
+  .label-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: capitalize;
+  }
+  .label-badge.complaint { color: var(--complaint); background: var(--complaint-bg); }
+  .label-badge.suggestion { color: var(--suggestion); background: var(--suggestion-bg); }
+  .label-badge.human_review { color: var(--review); background: var(--review-bg); }
+  .review-note {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--review);
+    background: var(--review-bg);
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .meta-row {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .meta-row b { color: var(--text); }
+  footer { margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PMC Complaint / Suggestion Classifier</h1>
+  <p>Type a citizen message to classify it</p>
+</header>
+
+<main>
+  <div class="card">
+    <label class="field-label" for="text-input">Message</label>
+    <textarea id="text-input" placeholder="Type or paste a complaint/suggestion in English, Hindi, Marathi, or Hinglish/romanized text..."></textarea>
+    <div class="row">
+      <label class="hint" for="lang-select">Language:</label>
+      <select id="lang-select">
+        <option value="">Auto-detect</option>
+        <option value="English">English</option>
+        <option value="Marathi-Dev">Marathi-Dev</option>
+        <option value="Marathi-Roman">Marathi-Roman</option>
+        <option value="Hindi-Dev">Hindi-Dev</option>
+        <option value="Hinglish">Hinglish</option>
+      </select>
+      <button class="primary" id="submit-btn">Classify</button>
+    </div>
+    <div id="error-hint"></div>
+  </div>
+
+  <div class="card" id="result-card">
+    <div id="result-body"></div>
+  </div>
+</main>
+
+<footer>MuRIL fine-tuned classifier</footer>
+
+<script>
+  // Backend is a separately hosted service, not served from this same origin/port --
+  // change this to wherever the deployment/backend API actually runs.
+  const API_URL = `${window.location.protocol}//${window.location.hostname}:8000/predict`;
+
+  const textInput = document.getElementById("text-input");
+  const langSelect = document.getElementById("lang-select");
+  const submitBtn = document.getElementById("submit-btn");
+  const errorHint = document.getElementById("error-hint");
+  const resultCard = document.getElementById("result-card");
+  const resultBody = document.getElementById("result-body");
+
+  async function classify() {
+    const text = textInput.value.trim();
+    errorHint.style.display = "none";
+    if (!text) {
+      errorHint.textContent = "Enter some text first.";
+      errorHint.style.display = "block";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Classifying...";
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: text,
+          language_variant: langSelect.value || null,
+        }),
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const data = await res.json();
+      renderResult(data);
+    } catch (err) {
+      errorHint.textContent = "Request failed: " + err.message;
+      errorHint.style.display = "block";
+      resultCard.style.display = "none";
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Classify";
+    }
+  }
+
+  function renderResult(data) {
+    const isReview = data.final_label === "human_review";
+    const langNote = data.language_auto_detected
+      ? `${data.language_variant} (auto-detected)`
+      : `${data.language_variant} (manual)`;
+
+    if (isReview) {
+      resultBody.innerHTML = `
+        <div class="label-badge human_review">human review</div>
+        <div class="review-note">
+          Doesn't look like a civic complaint or suggestion (greeting, test message, gibberish,
+          or unrelated chatter) — routed to a human instead of forcing a guess.
+        </div>
+        <div class="meta-row">
+          <span>Language: <b>${langNote}</b></span>
+          <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
+        </div>
+      `;
+    } else {
+      const confPct = Math.round(data.raw_confidence * 100);
+      const suggPct = Math.round(data.suggestion_probability * 100);
+      const threshPct = Math.round(data.suggestion_threshold_used * 100);
+      resultBody.innerHTML = `
+        <div class="label-badge ${data.final_label}">${data.final_label}</div>
+        <div class="meta-row">
+          <span>Language: <b>${langNote}</b></span>
+          <span>Confidence: <b>${confPct}%</b></span>
+          <span>P(suggestion): <b>${suggPct}%</b> (threshold: ${threshPct}%)</span>
+          <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
+        </div>
+      `;
+    }
+    resultCard.style.display = "block";
+  }
+
+  submitBtn.addEventListener("click", classify);
+  textInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) classify();
+  });
+</script>
+
+</body>
+</html>
