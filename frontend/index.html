@@ -131,14 +131,6 @@
     <label class="field-label" for="text-input">Message</label>
     <textarea id="text-input" placeholder="Type or paste a complaint/suggestion in English, Hindi, Marathi, or Hinglish/romanized text..."></textarea>
     <div class="row">
-      <label class="hint" for="lang-select">Language:</label>
-      <select id="lang-select">
-        <option value="English">English</option>
-        <option value="Marathi-Dev">Marathi-Dev</option>
-        <option value="Marathi-Roman">Marathi-Roman</option>
-        <option value="Hindi-Dev">Hindi-Dev</option>
-        <option value="Hinglish">Hinglish</option>
-      </select>
       <button class="primary" id="submit-btn">Classify</button>
     </div>
     <div id="error-hint"></div>
@@ -157,7 +149,6 @@
   const API_URL = "/predict";
 
   const textInput = document.getElementById("text-input");
-  const langSelect = document.getElementById("lang-select");
   const apiKeyInput = document.getElementById("api-key-input");
   const submitBtn = document.getElementById("submit-btn");
   const errorHint = document.getElementById("error-hint");
@@ -191,10 +182,7 @@
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-        body: JSON.stringify({
-          text: text,
-          language_variant: langSelect.value,
-        }),
+        body: JSON.stringify({ text: text }),
       });
       if (res.status === 401) throw new Error("Invalid API key");
       if (!res.ok) throw new Error(`Server returned ${res.status}`);

@@ -1,8 +1,10 @@
 # complaint-suggestion-classifier
 
 PMC citizen-message classifier (complaint vs. suggestion), fine-tuned on MuRIL, with a
-plain HTML/CSS/JS frontend. The caller (frontend or an integrating backend) specifies
-the language variant explicitly — there is no language auto-detection.
+plain HTML/CSS/JS frontend. There is no language auto-detection: the frontend doesn't
+ask for a language at all (every request uses the shared default threshold); an
+integrating backend may optionally pass `language_variant` for per-language threshold
+calibration (see `backend/api.py`).
 
 ## Structure
 

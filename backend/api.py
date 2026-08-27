@@ -78,8 +78,9 @@ print("Model loaded.")
 
 class PredictRequest(BaseModel):
     text: str
-    language_variant: str  # "English", "Marathi-Dev", "Marathi-Roman", "Hindi-Dev", or "Hinglish"
-                            # anything else falls back to the shared default threshold
+    # Optional: "English", "Marathi-Dev", "Marathi-Roman", "Hindi-Dev", or "Hinglish".
+    # Omitted or anything else falls back to the shared default threshold.
+    language_variant: str | None = None
 
 
 class PredictResponse(BaseModel):
@@ -97,7 +98,7 @@ class PredictResponse(BaseModel):
 def predict(req: PredictRequest):
     start = time.time()
     text = req.text.strip()
-    language_variant = req.language_variant
+    language_variant = req.language_variant or "Unknown"
 
     # Guardrail: the model is binary (complaint/suggestion) and was never trained with a
     # third option, so it will confidently force a label onto input that isn't a civic
