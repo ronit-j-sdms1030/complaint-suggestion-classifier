@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
 VENV_DIR="$BACKEND_DIR/venv"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
-FRONTEND_PORT="${FRONTEND_PORT:-8080}"
+BACKEND_PORT="${BACKEND_PORT:-8010}"
+FRONTEND_PORT="${FRONTEND_PORT:-8081}"
 API_KEY_FILE="$SCRIPT_DIR/.api_key"
 
 # Reuse a previously generated key across restarts unless API_KEY is explicitly set.

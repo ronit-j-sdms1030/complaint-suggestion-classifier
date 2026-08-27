@@ -133,6 +133,7 @@
     <div class="row">
       <label class="hint" for="lang-select">Language:</label>
       <select id="lang-select">
+        <option value="">Auto-detect</option>
         <option value="English">English</option>
         <option value="Marathi-Dev">Marathi-Dev</option>
         <option value="Marathi-Roman">Marathi-Roman</option>
@@ -154,7 +155,7 @@
 <script>
   // Backend is a separately hosted service, not served from this same origin/port --
   // change this to wherever the deployment/backend API actually runs.
-  const API_URL = "/predict";
+  const API_URL = `${window.location.protocol}//${window.location.hostname}:8000/predict`;
 
   const textInput = document.getElementById("text-input");
   const langSelect = document.getElementById("lang-select");
@@ -193,7 +194,7 @@
         headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
         body: JSON.stringify({
           text: text,
-          language_variant: langSelect.value,
+          language_variant: langSelect.value || null,
         }),
       });
       if (res.status === 401) throw new Error("Invalid API key");
@@ -212,6 +213,9 @@
 
   function renderResult(data) {
     const isReview = data.final_label === "human_review";
+    const langNote = data.language_auto_detected
+      ? `${data.language_variant} (auto-detected)`
+      : `${data.language_variant} (manual)`;
 
     if (isReview) {
       resultBody.innerHTML = `
@@ -221,7 +225,7 @@
           or unrelated chatter) — routed to a human instead of forcing a guess.
         </div>
         <div class="meta-row">
-          <span>Language: <b>${data.language_variant}</b></span>
+          <span>Language: <b>${langNote}</b></span>
           <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
         </div>
       `;
@@ -232,7 +236,7 @@
       resultBody.innerHTML = `
         <div class="label-badge ${data.final_label}">${data.final_label}</div>
         <div class="meta-row">
-          <span>Language: <b>${data.language_variant}</b></span>
+          <span>Language: <b>${langNote}</b></span>
           <span>Confidence: <b>${confPct}%</b></span>
           <span>P(suggestion): <b>${suggPct}%</b> (threshold: ${threshPct}%)</span>
           <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
