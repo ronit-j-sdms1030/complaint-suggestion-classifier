@@ -9,6 +9,18 @@ FRONTEND_DIR="$SCRIPT_DIR/frontend"
 VENV_DIR="$BACKEND_DIR/venv"
 BACKEND_PORT="${BACKEND_PORT:-8010}"
 FRONTEND_PORT="${FRONTEND_PORT:-8081}"
+
+# Stop anything already listening on these ports (a previous deploy) so re-running
+# this script redeploys cleanly instead of failing to bind.
+for P in "$BACKEND_PORT" "$FRONTEND_PORT"; do
+  PIDS="$(ss -ltnp "sport = :$P" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u)"
+  if [ -n "$PIDS" ]; then
+    echo "Stopping existing process(es) on port $P: $PIDS"
+    kill $PIDS 2>/dev/null || true
+    sleep 2
+    kill -9 $PIDS 2>/dev/null || true
+  fi
+done
 API_KEY_FILE="$SCRIPT_DIR/.api_key"
 
 # Reuse a previously generated key across restarts unless API_KEY is explicitly set.
