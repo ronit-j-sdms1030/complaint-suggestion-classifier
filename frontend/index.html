@@ -209,7 +209,6 @@
           or unrelated chatter) — routed to a human instead of forcing a guess.
         </div>
         <div class="meta-row">
-          <span>Language: <b>${data.language_variant}</b></span>
           <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
         </div>
       `;
@@ -220,7 +219,6 @@
       resultBody.innerHTML = `
         <div class="label-badge ${data.final_label}">${data.final_label}</div>
         <div class="meta-row">
-          <span>Language: <b>${data.language_variant}</b></span>
           <span>Confidence: <b>${confPct}%</b></span>
           <span>P(suggestion): <b>${suggPct}%</b> (threshold: ${threshPct}%)</span>
           <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
