@@ -6,12 +6,10 @@ Requires the API_KEY env var; callers must send it as the X-API-Key header.
 Run: API_KEY=<key> uvicorn api:app --host 0.0.0.0 --port 8000   (from this directory)
 """
 import os
-import re
 import sys
 import time
 from pathlib import Path
 
-import fasttext
 import torch
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,39 +23,6 @@ from guardrails import is_offtopic  # noqa: E402
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIR = str(PROJECT_ROOT / "muril-pmc-classifier")
 
-# Same IndicLID FastText language-ID pipeline used to label every row in this project's
-# training/eval data, so "auto" detection here matches what the model was calibrated
-# against rather than guessing with different logic.
-INDICLID_LABEL_MAP = {
-    "eng_Latn": "English", "hin_Deva": "Hindi-Dev", "mar_Deva": "Marathi-Dev",
-    "hin_Latn": "Hinglish", "mar_Latn": "Marathi-Roman",
-}
-
-
-def _char_percent_check(s):
-    special = len(re.findall(r'[@_!#$%^&*()<>?/\|}{~:]', s))
-    spaces = len(re.findall(r'\s', s))
-    newlines = len(re.findall(r'\n', s))
-    total_chars = len(s) - (special + spaces + newlines)
-    en_chars = len(re.findall(r'[a-zA-Z0-9]', s))
-    return (en_chars / total_chars) if total_chars else 0
-
-
-print("Loading IndicLID language-ID models...")
-_indiclid_native = fasttext.load_model(str(PROJECT_ROOT / "indiclid-ftn" / "model_baseline_roman.bin"))
-_indiclid_roman = fasttext.load_model(str(PROJECT_ROOT / "indiclid-ftr" / "model_baseline_roman.bin"))
-print("IndicLID models loaded.")
-
-
-def detect_language(text):
-    cleaned = text.replace("\n", " ").strip()
-    if not cleaned:
-        return "Unknown"
-    model = _indiclid_roman if _char_percent_check(cleaned) > 0.5 else _indiclid_native
-    # fasttext's predict() hits a numpy 2.x incompatibility when passed a bare string
-    # (works fine with a list -- same pattern build_finetune_dataset.py uses).
-    raw_label = model.predict([cleaned])[0][0][0].replace("__label__", "")
-    return INDICLID_LABEL_MAP.get(raw_label, "Other/Unknown")
 MAX_LEN = 160
 LABEL2ID = {"complaint": 0, "suggestion": 1}
 ID2LABEL = {v: k for k, v in LABEL2ID.items()}
@@ -113,8 +78,8 @@ print("Model loaded.")
 
 class PredictRequest(BaseModel):
     text: str
-    language_variant: str | None = None  # e.g. "English", "Marathi-Dev", "Marathi-Roman", ...
-                                          # unknown/omitted -> shared default threshold
+    language_variant: str  # "English", "Marathi-Dev", "Marathi-Roman", "Hindi-Dev", or "Hinglish"
+                            # anything else falls back to the shared default threshold
 
 
 class PredictResponse(BaseModel):
@@ -124,7 +89,6 @@ class PredictResponse(BaseModel):
     suggestion_probability: float
     suggestion_threshold_used: float
     language_variant: str
-    language_auto_detected: bool
     final_label: str
     latency_ms: float
 
@@ -133,9 +97,7 @@ class PredictResponse(BaseModel):
 def predict(req: PredictRequest):
     start = time.time()
     text = req.text.strip()
-
-    language_auto_detected = not req.language_variant
-    language_variant = req.language_variant or detect_language(text)
+    language_variant = req.language_variant
 
     # Guardrail: the model is binary (complaint/suggestion) and was never trained with a
     # third option, so it will confidently force a label onto input that isn't a civic
@@ -151,7 +113,6 @@ def predict(req: PredictRequest):
             suggestion_probability=0.0,
             suggestion_threshold_used=0.0,
             language_variant=language_variant,
-            language_auto_detected=language_auto_detected,
             final_label="human_review",
             latency_ms=latency_ms,
         )
@@ -170,8 +131,7 @@ def predict(req: PredictRequest):
     raw_confidence = float(probs[pred_id].item())
     latency_ms = (time.time() - start) * 1000
 
-    detected_note = " (auto-detected)" if language_auto_detected else " (manual)"
-    print(f"[predict] lang={language_variant!r}{detected_note} threshold={threshold} "
+    print(f"[predict] lang={language_variant!r} threshold={threshold} "
           f"raw={raw_label}({raw_confidence:.2f}, P(suggestion)={suggestion_probability:.2f}) | {text[:200]!r}")
 
     return PredictResponse(
@@ -181,7 +141,6 @@ def predict(req: PredictRequest):
         suggestion_probability=suggestion_probability,
         suggestion_threshold_used=threshold,
         language_variant=language_variant,
-        language_auto_detected=language_auto_detected,
         final_label=raw_label,
         latency_ms=latency_ms,
     )

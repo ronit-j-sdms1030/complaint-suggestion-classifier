@@ -1,7 +1,8 @@
 # complaint-suggestion-classifier
 
-PMC citizen-message classifier (complaint vs. suggestion), fine-tuned on MuRIL, with
-IndicLID language auto-detection and a plain HTML/CSS/JS frontend.
+PMC citizen-message classifier (complaint vs. suggestion), fine-tuned on MuRIL, with a
+plain HTML/CSS/JS frontend. The caller (frontend or an integrating backend) specifies
+the language variant explicitly — there is no language auto-detection.
 
 ## Structure
 
@@ -13,12 +14,10 @@ IndicLID language auto-detection and a plain HTML/CSS/JS frontend.
 ## Model weights
 
 Not included in this repo (exceed GitHub's file size limits) — handed over separately
-as a zip. Expected layout, as siblings of `backend/` and `frontend/`:
+as a zip. Expected layout, as a sibling of `backend/` and `frontend/`:
 
 ```
 muril-pmc-classifier/   (config.json, model.safetensors, tokenizer files)
-indiclid-ftn/            (model_baseline_roman.bin)
-indiclid-ftr/            (model_baseline_roman.bin)
 ```
 
 ## Run

@@ -193,7 +193,7 @@
         headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
         body: JSON.stringify({
           text: text,
-          language_variant: langSelect.value || null,
+          language_variant: langSelect.value,
         }),
       });
       if (res.status === 401) throw new Error("Invalid API key");
@@ -212,9 +212,6 @@
 
   function renderResult(data) {
     const isReview = data.final_label === "human_review";
-    const langNote = data.language_auto_detected
-      ? `${data.language_variant} (auto-detected)`
-      : `${data.language_variant} (manual)`;
 
     if (isReview) {
       resultBody.innerHTML = `
@@ -224,7 +221,7 @@
           or unrelated chatter) — routed to a human instead of forcing a guess.
         </div>
         <div class="meta-row">
-          <span>Language: <b>${langNote}</b></span>
+          <span>Language: <b>${data.language_variant}</b></span>
           <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
         </div>
       `;
@@ -235,7 +232,7 @@
       resultBody.innerHTML = `
         <div class="label-badge ${data.final_label}">${data.final_label}</div>
         <div class="meta-row">
-          <span>Language: <b>${langNote}</b></span>
+          <span>Language: <b>${data.language_variant}</b></span>
           <span>Confidence: <b>${confPct}%</b></span>
           <span>P(suggestion): <b>${suggPct}%</b> (threshold: ${threshPct}%)</span>
           <span>Latency: <b>${data.latency_ms.toFixed(0)} ms</b></span>
